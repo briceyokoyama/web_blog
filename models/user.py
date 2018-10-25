@@ -1,5 +1,8 @@
 from common.database import Database
+from models.blog import Blog
+from flask import session
 import uuid
+import datetime
 
 class User(object):
     def __init__(self, email, password, _id = None):
@@ -36,19 +39,39 @@ class User(object):
             #  User doesn't exist, so we can create it
             new_user = cls(email, password)
             new_user.save_to_mongo()
+            session['email'] = email
             return True
         else:
             # User exists :(
             return False
 
-    def login(self):
-        pass
+    @staticmethod
+    def login(user_email):
+        # login_valid has already been called
+        session['email'] = user_email
+
+    @staticmethod
+    def logout():
+        session['email'] = None
         
     def get_blogs(self):
-        pass
+        return Blog.find_by_author_id(self._id)
+
+    def new_blog(self, title, description):
+        blog = Blog(author = self.email, title = title, description = description, author_id = self._id)
+        blog.save_to_mongo()
+
+    @staticmethod
+    def new_post(blog_id, title, content, date=datetime.datetime.utcnow()):
+        blog = Blog.from_mongo(blog_id)
+        blog.new_post(title = title, content = content, date = date)
 
     def json(self):
-        pass
+        return {
+            'email': self.email,
+            '_id': self._id,
+            'password': self.password # Not safe to send over a network, but this isn't being sent over the network.
+        }
 
     def save_to_mongo(self):
-        pass
+        Database.insert('users', self.json())
